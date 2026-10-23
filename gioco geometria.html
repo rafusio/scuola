@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abbina la Figura!</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: linear-gradient(135deg, #667eea22, #764ba222); min-height: 100vh; font-family: system-ui, sans-serif; }
+    .opt-card:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 6px 16px rgba(0,0,0,0.15) !important; }
+    .start-btn:hover { transform: scale(1.05); }
+    .cat-btn:hover, .lvl-btn:hover { transform: translateY(-2px); }
+    @keyframes pop { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+    .pop { animation: pop 0.4s ease-out; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    /* ───────── Assi cartesiani per geometria analitica ───────── */
+    const Axes = () => (
+      <g stroke="#ccc" strokeWidth="1" fill="#ccc">
+        <line x1="10" y1="60" x2="110" y2="60" />
+        <line x1="60" y1="10" x2="60" y2="110" />
+        <polygon points="110,60 105,57 105,63" />
+        <polygon points="60,10 57,15 63,15" />
+      </g>
+    );
+
+    /* ───────── Punti per sinusoide ───────── */
+    const sinePoints = (() => {
+      const pts = [];
+      for (let i = 0; i <= 36; i++) {
+        const x = 15 + i * 2.5;
+        const y = 60 - Math.sin((i / 36) * 2 * Math.PI) * 30;
+        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+      return pts.join(' ');
+    })();
+
+    /* ───────── Categorie di figure ───────── */
+    const SHAPE_SETS = {
+      piane: [
+        { name: "Cerchio",    color: "#FF6B6B", render: (c) => <circle cx="60" cy="60" r="50" fill={c} /> },
+        { name: "Triangolo",  color: "#4ECDC4", render: (c) => <polygon points="60,10 110,110 10,110" fill={c} /> },
+        { name: "Quadrato",   color: "#45B7D1", render: (c) => <rect x="10" y="10" width="100" height="100" fill={c} /> },
+        { name: "Rettangolo", color: "#96CEB4", render: (c) => <rect x="5" y="25" width="110" height="70" fill={c} /> },
+        { name: "Pentagono",  color: "#FFEAA7", render: (c) => <polygon points="60,5 115,45 95,110 25,110 5,45" fill={c} /> },
+        { name: "Esagono",    color: "#DDA0DD", render: (c) => <polygon points="60,5 110,32 110,88 60,115 10,88 10,32" fill={c} /> },
+        { name: "Rombo",      color: "#F0A500", render: (c) => <polygon points="60,5 115,60 60,115 5,60" fill={c} /> },
+        { name: "Stella",     color: "#FF8C69", render: (c) => <polygon points="60,5 72,40 110,40 80,62 90,100 60,78 30,100 40,62 10,40 48,40" fill={c} /> },
+      ],
+      solidi: [
+        { name: "Cubo", color: "#FF6B6B", render: (c) => (
+          <g>
+            <polygon points="60,55 110,35 110,85 60,105" fill={c} />
+            <polygon points="60,55 10,35 10,85 60,105" fill={c} opacity="0.7" />
+            <polygon points="60,15 110,35 60,55 10,35" fill={c} opacity="0.5" />
+          </g>
+        )},
+        { name: "Sfera", color: "#45B7D1", render: (c) => (
+          <g>
+            <circle cx="60" cy="60" r="48" fill={c} />
+            <ellipse cx="60" cy="60" rx="48" ry="12" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1" />
+            <ellipse cx="48" cy="48" rx="14" ry="10" fill="rgba(255,255,255,0.4)" />
+          </g>
+        )},
+        { name: "Cilindro", color: "#4ECDC4", render: (c) => (
+          <g>
+            <rect x="20" y="20" width="80" height="80" fill={c} />
+            <ellipse cx="60" cy="100" rx="40" ry="10" fill={c} />
+            <ellipse cx="60" cy="20" rx="40" ry="10" fill={c} opacity="0.7" stroke="rgba(0,0,0,0.2)" strokeWidth="1" />
+            <line x1="20" y1="20" x2="20" y2="100" stroke="rgba(0,0,0,0.2)" />
+            <line x1="100" y1="20" x2="100" y2="100" stroke="rgba(0,0,0,0.2)" />
+          </g>
+        )},
+        { name: "Cono", color: "#FFEAA7", render: (c) => (
+          <g>
+            <polygon points="60,10 100,100 20,100" fill={c} />
+            <ellipse cx="60" cy="100" rx="40" ry="10" fill={c} />
+            <path d="M 20 100 A 40 10 0 0 1 100 100" fill="none" stroke="rgba(0,0,0,0.3)" strokeDasharray="2 2" />
+          </g>
+        )},
+        { name: "Piramide", color: "#DDA0DD", render: (c) => (
+          <g>
+            <polygon points="10,90 60,65 110,90 60,110" fill={c} opacity="0.4" />
+            <polygon points="60,10 10,90 60,110" fill={c} opacity="0.7" />
+            <polygon points="60,10 60,110 110,90" fill={c} />
+          </g>
+        )},
+        { name: "Parallelepipedo", color: "#96CEB4", render: (c) => (
+          <g>
+            <rect x="10" y="40" width="80" height="60" fill={c} />
+            <polygon points="10,40 25,25 105,25 90,40" fill={c} opacity="0.6" />
+            <polygon points="90,40 105,25 105,85 90,100" fill={c} opacity="0.45" />
+          </g>
+        )},
+        { name: "Prisma", color: "#F0A500", render: (c) => (
+          <g>
+            <polygon points="30,85 70,15 110,85" fill={c} opacity="0.5" />
+            <polygon points="50,30 70,15 110,85 90,105" fill={c} opacity="0.7" />
+            <polygon points="10,105 50,30 90,105" fill={c} />
+          </g>
+        )},
+      ],
+      analitica: [
+        { name: "Retta", color: "#FF6B6B", render: (c) => (
+          <g>
+            <Axes />
+            <line x1="15" y1="100" x2="105" y2="20" stroke={c} strokeWidth="4" strokeLinecap="round" />
+          </g>
+        )},
+        { name: "Parabola", color: "#4ECDC4", render: (c) => (
+          <g>
+            <Axes />
+            <path d="M 15 15 Q 60 185, 105 15" fill="none" stroke={c} strokeWidth="4" strokeLinecap="round" />
+          </g>
+        )},
+        { name: "Circonferenza", color: "#45B7D1", render: (c) => (
+          <g>
+            <Axes />
+            <circle cx="60" cy="60" r="38" fill="none" stroke={c} strokeWidth="4" />
+          </g>
+        )},
+        { name: "Ellisse", color: "#96CEB4", render: (c) => (
+          <g>
+            <Axes />
+            <ellipse cx="60" cy="60" rx="45" ry="25" fill="none" stroke={c} strokeWidth="4" />
+          </g>
+        )},
+        { name: "Iperbole", color: "#FFEAA7", render: (c) => (
+          <g>
+            <Axes />
+            <path d="M 105 15 Q 35 60, 105 105" fill="none" stroke={c} strokeWidth="4" strokeLinecap="round" />
+            <path d="M 15 15 Q 85 60, 15 105" fill="none" stroke={c} strokeWidth="4" strokeLinecap="round" />
+          </g>
+        )},
+        { name: "Sinusoide", color: "#DDA0DD", render: (c) => (
+          <g>
+            <Axes />
+            <polyline points={sinePoints} fill="none" stroke={c} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        )},
+      ],
+    };
+
+    const CATEGORIES = [
+      { id: 'piane',     label: 'Figure Piane',   icon: '⬢' },
+      { id: 'solidi',    label: 'Figure Solide',  icon: '🧊' },
+      { id: 'analitica', label: 'G. Analitica',   icon: '📈' },
+    ];
+
+    const LEVELS = [
+      { time: 12, shapes: 4, label: "Facile" },
+      { time: 9,  shapes: 6, label: "Medio" },
+      { time: 6,  shapes: 8, label: "Difficile" },
+    ];
+
+    /* ───────── Helpers ───────── */
+    function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+    function getOptions(correct, all, n = 4) {
+      const pool = all.filter(s => s.name !== correct.name);
+      const others = shuffle(pool).slice(0, Math.min(n - 1, pool.length));
+      return shuffle([correct, ...others]);
+    }
+
+    function buildRoundList(set, count) {
+      const result = [];
+      while (result.length < count) result.push(...shuffle(set));
+      return result.slice(0, count);
+    }
+
+    /* ───────── Sistema audio (Web Audio API) ───────── */
+    let audioCtx = null;
+    const getCtx = () => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    };
+
+    const playSound = (notes) => {
+      try {
+        const ctx = getCtx();
+        notes.forEach((n) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = n.type || 'sine';
+          o.frequency.value = n.freq;
+          o.connect(g);
+          g.connect(ctx.destination);
+          const start = ctx.currentTime + n.delay;
+          g.gain.setValueAtTime(0, start);
+          g.gain.linearRampToValueAtTime(n.vol || 0.25, start + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.001, start + n.duration);
+          o.start(start);
+          o.stop(start + n.duration);
+        });
+      } catch (e) { /* audio non disponibile */ }
+    };
+
+    const SOUNDS = {
+      correct: [
+        { freq: 523, duration: 0.12, delay: 0 },     // C5
+        { freq: 659, duration: 0.12, delay: 0.08 },  // E5
+        { freq: 784, duration: 0.22, delay: 0.16 },  // G5
+      ],
+      wrong: [
+        { freq: 220, duration: 0.18, delay: 0,    type: 'sawtooth', vol: 0.18 },
+        { freq: 165, duration: 0.28, delay: 0.15, type: 'sawtooth', vol: 0.18 },
+      ],
+      levelUp: [
+        { freq: 523,  duration: 0.13, delay: 0 },
+        { freq: 659,  duration: 0.13, delay: 0.13 },
+        { freq: 784,  duration: 0.13, delay: 0.26 },
+        { freq: 1047, duration: 0.45, delay: 0.39 },
+      ],
+      victory: [
+        { freq: 523,  duration: 0.12, delay: 0 },
+        { freq: 659,  duration: 0.12, delay: 0.12 },
+        { freq: 784,  duration: 0.12, delay: 0.24 },
+        { freq: 1047, duration: 0.12, delay: 0.36 },
+        { freq: 1319, duration: 0.5,  delay: 0.48 },
+      ],
+      gameOver: [
+        { freq: 392, duration: 0.25, delay: 0,    type: 'triangle', vol: 0.22 },
+        { freq: 370, duration: 0.25, delay: 0.22, type: 'triangle', vol: 0.22 },
+        { freq: 349, duration: 0.25, delay: 0.44, type: 'triangle', vol: 0.22 },
+        { freq: 311, duration: 0.7,  delay: 0.66, type: 'triangle', vol: 0.22 },
+      ],
+    };
+
+    /* ───────── App principale ───────── */
+    function App() {
+      const [screen, setScreen]           = useState("start");
+      const [category, setCategory]       = useState("piane");
+      const [level, setLevel]             = useState(0);
+      const [score, setScore]             = useState(0);
+      const [lives, setLives]             = useState(3);
+      const [round, setRound]             = useState(0);
+      const [roundList, setRoundList]     = useState([]);
+      const [currentShape, setCurrentShape] = useState(null);
+      const [options, setOptions]         = useState([]);
+      const [timeLeft, setTimeLeft]       = useState(12);
+      const [feedback, setFeedback]       = useState(null);
+      const [dragOver, setDragOver]       = useState(false);
+      const timerRef = useRef(null);
+      const fbRef    = useRef(null);
+
+      const currentSet = SHAPE_SETS[category];
+
+      /* Avvio di un livello */
+      const startLevel = (lv) => {
+        const list = buildRoundList(currentSet, LEVELS[lv].shapes);
+        setRoundList(list);
+        setRound(0);
+        setCurrentShape(list[0]);
+        setOptions(getOptions(list[0], currentSet));
+        setTimeLeft(LEVELS[lv].time);
+        setFeedback(null);
+      };
+
+      const startGame = () => {
+        getCtx(); // sblocca audio al primo click
+        setScore(0); setLives(3); setLevel(0);
+        startLevel(0);
+        setScreen("play");
+      };
+
+      const continueGame = () => {
+        const newLv = level + 1;
+        setLevel(newLv);
+        const list = buildRoundList(currentSet, LEVELS[newLv].shapes);
+        setRoundList(list);
+        setRound(0);
+        setCurrentShape(list[0]);
+        setOptions(getOptions(list[0], currentSet));
+        setTimeLeft(LEVELS[newLv].time);
+        setFeedback(null);
+        setScreen("play");
+      };
+
+      /* Timer per ogni figura */
+      useEffect(() => {
+        if (screen !== "play" || feedback) return;
+        timerRef.current = setInterval(() => {
+          setTimeLeft(t => {
+            if (t <= 1) { clearInterval(timerRef.current); handleAnswer(null); return 0; }
+            return t - 1;
+          });
+        }, 1000);
+        return () => clearInterval(timerRef.current);
+      }, [screen, currentShape, feedback]);
+
+      /* Gestione risposta */
+      const handleAnswer = (name) => {
+        clearInterval(timerRef.current);
+        const correct = name === currentShape?.name;
+        setFeedback(correct ? "correct" : "wrong");
+
+        let newLives = lives;
+        let newScore = score;
+
+        if (correct) {
+          newScore = score + 10 * (level + 1);
+          setScore(newScore);
+          playSound(SOUNDS.correct);
+        } else {
+          newLives = lives - 1;
+          setLives(newLives);
+          if (newLives <= 0) {
+            playSound(SOUNDS.gameOver);
+            fbRef.current = setTimeout(() => setScreen("end"), 1700);
+            return;
+          }
+          playSound(SOUNDS.wrong);
+        }
+
+        fbRef.current = setTimeout(() => {
+          setFeedback(null);
+          const newRound = round + 1;
+          if (newRound >= LEVELS[level].shapes) {
+            /* Livello completato */
+            if (level + 1 >= LEVELS.length) {
+              playSound(SOUNDS.victory);
+              setScreen("end");
+            } else {
+              playSound(SOUNDS.levelUp);
+              setScreen("levelup");
+            }
+          } else {
+            const shape = roundList[newRound];
+            setCurrentShape(shape);
+            setOptions(getOptions(shape, currentSet));
+            setTimeLeft(LEVELS[level].time);
+            setRound(newRound);
+          }
+        }, 1000);
+      };
+
+      /* Drag handlers */
+      const onDragStart = (e, name) => e.dataTransfer.setData("text/plain", name);
+      const onDrop = (e) => { e.preventDefault(); setDragOver(false); const n = e.dataTransfer.getData("text/plain"); if (n) handleAnswer(n); };
+      const onDragOver = (e) => { e.preventDefault(); setDragOver(true); };
+      const onDragLeave = () => setDragOver(false);
+
+      /* ═════════ SCHERMATE ═════════ */
+
+      /* START */
+      if (screen === "start") return (
+        <div style={S.bg}>
+          <div style={S.card}>
+            <div style={{fontSize:64, marginBottom:4}}>📐</div>
+            <h1 style={S.title}>Abbina la Figura!</h1>
+            <p style={{color:"#666", marginBottom:20, textAlign:"center", lineHeight:1.5, fontSize:14}}>
+              Trascina il nome corretto sulla figura<br/>prima che scada il tempo!
+            </p>
+
+            <p style={S.section}>Categoria</p>
+            <div style={{display:"flex", gap:8, marginBottom:18, flexWrap:"wrap", justifyContent:"center"}}>
+              {CATEGORIES.map(cat => (
+                <button key={cat.id} className="cat-btn" onClick={() => setCategory(cat.id)}
+                  style={{...S.catBtn,
+                    background: category === cat.id ? "#764ba2" : "#f5f5f5",
+                    color: category === cat.id ? "#fff" : "#333",
+                  }}>
+                  <span style={{fontSize:20, display:"block"}}>{cat.icon}</span>
+                  <span style={{fontSize:11, fontWeight:700}}>{cat.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <p style={S.section}>Difficoltà</p>
+            <div style={{display:"flex", gap:10, marginBottom:24}}>
+              {LEVELS.map((l, i) => (
+                <button key={i} className="lvl-btn" onClick={() => setLevel(i)}
+                  style={{...S.lvlBtn,
+                    background: level === i ? "#FF6B6B" : "#f0f0f0",
+                    color: level === i ? "#fff" : "#333",
+                  }}>
+                  {l.label}
+                </button>
+              ))}
+            </div>
+
+            <button className="start-btn" style={S.startBtn} onClick={startGame}>▶ GIOCA</button>
+          </div>
+        </div>
+      );
+
+      /* LEVEL UP */
+      if (screen === "levelup") {
+        const next = LEVELS[level + 1];
+        return (
+          <div style={S.bg}>
+            <div style={S.card}>
+              <div className="pop" style={{fontSize:72, marginBottom:8}}>🎉</div>
+              <h2 style={{...S.title, fontSize:24, color:"#764ba2"}}>Livello {level + 1} Completato!</h2>
+              <p style={{fontSize:36, fontWeight:800, color:"#FF6B6B", margin:"10px 0"}}>{score} pt</p>
+              <div style={{background:"#f8f4ff", borderRadius:14, padding:"14px 20px", marginBottom:20, textAlign:"center"}}>
+                <p style={{color:"#666", fontSize:13, marginBottom:6}}>Prossimo livello</p>
+                <p style={{fontWeight:800, fontSize:18, color:"#764ba2"}}>{next.label}</p>
+                <p style={{color:"#888", fontSize:12, marginTop:4}}>⏱ {next.time}s · {next.shapes} figure</p>
+              </div>
+              <button className="start-btn" style={S.startBtn} onClick={continueGame}>▶ Continua</button>
+            </div>
+          </div>
+        );
+      }
+
+      /* END */
+      if (screen === "end") {
+        const won = lives > 0;
+        return (
+          <div style={S.bg}>
+            <div style={S.card}>
+              <div className="pop" style={{fontSize:72}}>{won ? "🏆" : "💔"}</div>
+              <h2 style={{...S.title, fontSize:28}}>{won ? "Vittoria!" : "Game Over"}</h2>
+              <p style={{fontSize:40, fontWeight:800, color:"#FF6B6B", margin:"8px 0"}}>{score} pt</p>
+              <div style={{fontSize:32, margin:"8px 0"}}>
+                {"⭐".repeat(score >= 200 ? 3 : score >= 100 ? 2 : 1)}
+                {"☆".repeat(score >= 200 ? 0 : score >= 100 ? 1 : 2)}
+              </div>
+              <button className="start-btn" style={{...S.startBtn, marginTop:20}} onClick={() => setScreen("start")}>🔄 Rigioca</button>
+            </div>
+          </div>
+        );
+      }
+
+      /* PLAY */
+      const cfg = LEVELS[level];
+      const timerPct = timeLeft / cfg.time;
+      const timerColor = timerPct > 0.5 ? "#4ECDC4" : timerPct > 0.25 ? "#F0A500" : "#FF6B6B";
+
+      return (
+        <div style={S.bg}>
+          {/* HUD */}
+          <div style={S.hud}>
+            <span style={{fontSize:18}}>{"❤️".repeat(lives)}{"🖤".repeat(3-lives)}</span>
+            <div style={{display:"flex", flexDirection:"column", alignItems:"center", gap:4}}>
+              <span style={{fontWeight:700, color:timerColor, fontSize:22}}>{timeLeft}s</span>
+              <div style={{width:120, height:6, background:"#e0e0e0", borderRadius:4}}>
+                <div style={{width:`${timerPct*100}%`, height:"100%", background:timerColor, borderRadius:4, transition:"width 1s linear, background 0.3s"}} />
+              </div>
+            </div>
+            <span style={{fontWeight:800, fontSize:20, color:"#FF6B6B"}}>⭐ {score}</span>
+          </div>
+
+          <div style={S.lvlBadge}>
+            {CATEGORIES.find(c => c.id === category).icon} {LEVELS[level].label} — {round+1}/{cfg.shapes}
+          </div>
+
+          {/* Drop zone */}
+          <div onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
+            style={{...S.dropZone,
+              borderColor: feedback==="correct"?"#4ECDC4": feedback==="wrong"?"#FF6B6B": dragOver?"#45B7D1":"#ccc",
+              background:  feedback==="correct"?"#e8fff8": feedback==="wrong"?"#fff0f0": dragOver?"#f0f8ff":"#fff",
+              transform: dragOver ? "scale(1.04)" : "scale(1)",
+            }}>
+            {currentShape && (
+              <svg viewBox="0 0 120 120" width="150" height="150" style={{filter:"drop-shadow(0 4px 8px rgba(0,0,0,0.15))"}}>
+                {!feedback && currentShape.render(currentShape.color)}
+                {feedback==="correct" && <text x="60" y="82" textAnchor="middle" fontSize="68">✅</text>}
+                {feedback==="wrong"   && <text x="60" y="82" textAnchor="middle" fontSize="68">❌</text>}
+              </svg>
+            )}
+            <p style={{margin:"4px 0 0", color:"#aaa", fontSize:13}}>
+              {feedback ? "" : "⬇ Trascina qui il nome"}
+            </p>
+          </div>
+
+          {/* Opzioni */}
+          <div style={S.optRow}>
+            {options.map(opt => (
+              <div key={opt.name} className="opt-card"
+                draggable
+                onDragStart={e => onDragStart(e, opt.name)}
+                onClick={() => !feedback && handleAnswer(opt.name)}
+                style={{...S.optCard,
+                  background: opt.color+"33",
+                  borderColor: opt.color,
+                  cursor: feedback ? "default" : "grab",
+                  opacity: feedback ? 0.6 : 1,
+                }}>
+                <span style={{fontWeight:700, fontSize:14, color:"#333"}}>{opt.name}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{color:"#aaa", fontSize:12, marginTop:8}}>Puoi anche cliccare la card!</p>
+        </div>
+      );
+    }
+
+    /* ───────── Stili ───────── */
+    const S = {
+      bg:       { minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:16 },
+      card:     { background:"#fff", borderRadius:24, padding:"32px 28px", boxShadow:"0 8px 32px rgba(0,0,0,0.12)", display:"flex", flexDirection:"column", alignItems:"center", maxWidth:420, width:"100%" },
+      title:    { fontSize:30, fontWeight:900, margin:"0 0 8px", color:"#222", textAlign:"center" },
+      section:  { fontSize:12, fontWeight:700, color:"#888", textTransform:"uppercase", letterSpacing:1, marginBottom:8, alignSelf:"flex-start" },
+      startBtn: { background:"linear-gradient(135deg,#FF6B6B,#ee5a24)", color:"#fff", border:"none", borderRadius:16, padding:"14px 40px", fontSize:18, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px #FF6B6B55", transition:"transform 0.15s" },
+      catBtn:   { border:"none", borderRadius:14, padding:"10px 8px", cursor:"pointer", transition:"all 0.15s", minWidth:100, display:"flex", flexDirection:"column", alignItems:"center", gap:4 },
+      lvlBtn:   { border:"none", borderRadius:10, padding:"10px 18px", fontWeight:700, cursor:"pointer", fontSize:14, transition:"transform 0.15s" },
+      hud:      { display:"flex", justifyContent:"space-between", alignItems:"center", width:"100%", maxWidth:420, background:"#fff", borderRadius:16, padding:"10px 20px", boxShadow:"0 2px 12px rgba(0,0,0,0.08)", marginBottom:12 },
+      lvlBadge: { background:"#764ba2", color:"#fff", borderRadius:20, padding:"4px 16px", fontSize:13, fontWeight:700, marginBottom:14 },
+      dropZone: { width:230, height:230, borderRadius:24, border:"3px dashed #ccc", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#fff", transition:"all 0.2s", marginBottom:20, boxShadow:"0 4px 16px rgba(0,0,0,0.07)" },
+      optRow:   { display:"flex", flexWrap:"wrap", gap:10, justifyContent:"center", maxWidth:440 },
+      optCard:  { border:"2px solid", borderRadius:14, padding:"12px 16px", textAlign:"center", userSelect:"none", transition:"transform 0.15s, box-shadow 0.15s", boxShadow:"0 2px 8px rgba(0,0,0,0.08)", minWidth:90 },
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
