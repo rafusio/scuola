@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I miei giochi didattici</title>
+<style>
+  :root {
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #1f2a44;
+    --muted: #64708a;
+    --accent: #3b6cf6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    text-align: center;
+    padding: 40px 16px 16px;
+  }
+  header h1 { margin: 0 0 8px; font-size: 2rem; }
+  header p { margin: 0; color: var(--muted); }
+  main { max-width: 960px; margin: 0 auto; padding: 16px; }
+  section { margin: 32px 0; }
+  section h2 {
+    font-size: 1.3rem;
+    margin: 0 0 14px;
+    padding-bottom: 6px;
+    border-bottom: 3px solid var(--accent);
+    display: inline-block;
+  }
+  .griglia {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .gioco {
+    display: block;
+    background: var(--card);
+    border-radius: 14px;
+    padding: 18px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 2px 8px rgba(31, 42, 68, 0.08);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .gioco:hover, .gioco:focus {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(31, 42, 68, 0.15);
+    outline: none;
+  }
+  .gioco .icona { font-size: 2rem; }
+  .gioco h3 { margin: 8px 0 4px; font-size: 1.05rem; color: var(--accent); }
+  .gioco p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎓 I miei giochi didattici</h1>
+  <p>Scegli una categoria e clicca sul gioco per iniziare</p>
+</header>
+
+<main id="contenitore"></main>
+
+<footer>Aggiornato con cura per la classe</footer>
+
+<script>
+/* ============================================================
+   QUI MODIFICHI TU.
+   - "file" deve essere IDENTICO al nome del file caricato
+     (maiuscole e minuscole comprese).
+   - Per aggiungere un gioco: copia una riga { ... } e cambiala.
+   - Per aggiungere una categoria: copia un blocco { nome: ..., giochi: [...] }.
+   ============================================================ */
+const categorie = [
+  {
+    nome: "Matematica",
+    giochi: [
+      { titolo: "Geometria", descrizione: "Allenati con le figure", file: "https://rafusio.github.io/scuola/gioco%20geometria.html", icona: "✖️" },
+      { titolo: "Addizioni veloci", descrizione: "Calcolo mentale a tempo", file: "addizioni.html", icona: "➕" }
+    ]
+  },
+  {
+    nome: "Italiano",
+    giochi: [
+      { titolo: "Memory delle parole", descrizione: "Abbina parole e immagini", file: "memory.html", icona: "🧠" }
+    ]
+  },
+  {
+    nome: "Scienze",
+    giochi: [
+      { titolo: "Quiz sul corpo umano", descrizione: "Metti alla prova le tue conoscenze", file: "corpo-umano.html", icona: "🫀" }
+    ]
+  }
+];
+
+/* ---- Da qui in poi non serve modificare nulla ---- */
+const contenitore = document.getElementById("contenitore");
+
+categorie.forEach(cat => {
+  const sezione = document.createElement("section");
+  const titolo = document.createElement("h2");
+  titolo.textContent = cat.nome;
+  sezione.appendChild(titolo);
+
+  const griglia = document.createElement("div");
+  griglia.className = "griglia";
+
+  cat.giochi.forEach(g => {
+    const a = document.createElement("a");
+    a.className = "gioco";
+    a.href = g.file;
+
+    const icona = document.createElement("div");
+    icona.className = "icona";
+    icona.textContent = g.icona || "🎮";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = g.titolo;
+
+    const p = document.createElement("p");
+    p.textContent = g.descrizione || "";
+
+    a.append(icona, h3, p);
+    griglia.appendChild(a);
+  });
+
+  sezione.appendChild(griglia);
+  contenitore.appendChild(sezione);
+});
+</script>
+
+</body>
+</html>
