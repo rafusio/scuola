@@ -54,6 +54,13 @@ body {
 }
 .now-n { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--accent); white-space: nowrap; }
 .now-t { min-width: 0; font-size: 15px; }
+.player { display: flex; gap: 8px; align-items: center; }
+.player label { font-weight: 600; font-size: 14px; }
+.player input {
+  flex: 1; max-width: 320px; font: inherit; font-size: 16px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink);
+}
+.player input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tools { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn {
   font: 600 14px/1 var(--font-body); padding: 10px 14px; border-radius: 6px; cursor: pointer;
@@ -62,9 +69,27 @@ body {
 .btn:hover { border-color: var(--accent); }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn.armed { border-color: var(--bad); color: var(--bad); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn:focus-visible, .clue:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #status { margin: 0; min-height: 1.5em; font-size: 14px; color: var(--muted); }
 #status.ok { color: var(--good); font-weight: 600; }
+
+.result {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.result h2 { margin: 0; }
+.big { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 30px; line-height: 1.1; }
+.result p { margin: 0; }
+#r-sum, #r-hist { font-size: 14px; color: var(--muted); }
+#r-list {
+  list-style: none; margin: 0; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 18px; font-size: 13px;
+}
+#r-list li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.st-right { color: var(--good); font-weight: 600; }
+.st-wrong { color: var(--bad); font-weight: 600; }
+.st-other { color: var(--muted); }
 
 #stage { margin: 4px auto 0; position: relative; }
 #sheet {
@@ -92,6 +117,8 @@ h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 3
 .cell.in-word { background: var(--hl); }
 .cell.active { background: var(--active); }
 .cell.active input, .cell.active .n { color: var(--active-ink); }
+.cell.revealed input { color: var(--muted); }
+.cell.ok input { color: var(--good); }
 .cell.wrong { box-shadow: inset 0 0 0 2px var(--bad); }
 .cell.wrong input { color: var(--bad); }
 .right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -121,7 +148,7 @@ ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: col
 @media print {
   body { padding: 0; background: #fff; }
   .wrap { max-width: none; gap: 0; }
-  .how, .now, .tools, #status { display: none; }
+  .how, .now, .tools, #status, .player, .result { display: none; }
   #stage { width: 210mm !important; height: 297mm !important; margin: 0; }
   #sheet { transform: none !important; box-shadow: none; }
 }
@@ -129,14 +156,33 @@ ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: col
 
 <div class="wrap">
   <p class="how">Select a square and type. Select it again to switch between across and down. Leave out spaces and hyphens: "to fit together" is written FITTOGETHER.</p>
+  <p class="how" id="rules"></p>
+  <div class="player">
+    <label for="name">Name</label>
+    <input type="text" id="name" maxlength="40" autocomplete="name" placeholder="Type your name">
+  </div>
   <div class="now" aria-live="polite"><span class="now-n" id="now-n"></span><span class="now-t" id="now-t"></span></div>
   <div class="tools">
-    <button type="button" class="btn primary" id="b-check">Check letters</button>
+    <button type="button" class="btn primary" id="b-submit">Submit and score</button>
+    <button type="button" class="btn" id="b-check">Check letters</button>
     <button type="button" class="btn" id="b-word">Reveal word</button>
     <button type="button" class="btn" id="b-all">Reveal all</button>
     <button type="button" class="btn" id="b-clear">Clear</button>
   </div>
   <p id="status" aria-live="polite"></p>
+
+  <section class="result" id="result" hidden>
+    <h2>Result</h2>
+    <p class="big" id="r-score"></p>
+    <p id="r-sum"></p>
+    <ul id="r-list"></ul>
+    <div class="tools">
+      <button type="button" class="btn primary" id="b-copy">Copy result</button>
+      <button type="button" class="btn" id="b-dl">Download result</button>
+      <button type="button" class="btn" id="b-again">New attempt</button>
+    </div>
+    <p id="r-hist"></p>
+  </section>
 
   <div id="stage">
     <div id="sheet">
@@ -184,18 +230,30 @@ const CLUES = {
 };
 const ENUM = { FITTOGETHER: "(3,8)", NONEDIBLE: "(3-6)" };
 const BANK_ORDER = ["cockroach","viscosity","opaqueness","date","to taste","pomegranate","seaweed","amount","formula","to achieve","edible","non-edible","maggots","to dye","wrinkled","threads","flexible","to fit together","to separate","shrivelled"];
-const KEY = "taste-and-texture-crossword-v1";
+const KEY = "taste-and-texture-crossword-v2";
+const HKEY = "taste-and-texture-crossword-history-v1";
+
+/* ============================================================
+   SCORING: change these two numbers to change the points.
+   PTS_RIGHT = points for each correct word
+   PTS_WRONG = points for each wrong word (use a negative number)
+   Words left empty or incomplete, and words revealed with the
+   "Reveal" buttons, score 0.
+   ============================================================ */
+const PTS_RIGHT = 10;
+const PTS_WRONG = -5;
 
 const H = DATA.h, W = DATA.w;
 const cells = Array.from({ length: H }, () => Array(W).fill(null));
 const entries = DATA.entries;
+const MAX = entries.length * PTS_RIGHT;
 entries.forEach((e) => {
   e.cells = [];
   for (let k = 0; k < e.word.length; k++) {
     const r = e.r + (e.dir === "D" ? k : 0);
     const c = e.c + (e.dir === "A" ? k : 0);
     let cell = cells[r][c];
-    if (!cell) { cell = cells[r][c] = { r, c, ch: e.word[k], ent: {}, num: 0 }; }
+    if (!cell) { cell = cells[r][c] = { r, c, ch: e.word[k], ent: {}, num: 0, revealed: false }; }
     cell.ent[e.dir] = e;
     if (k === 0) cell.num = e.num;
     e.cells.push(cell);
@@ -206,8 +264,14 @@ const down = entries.filter((e) => e.dir === "D").sort((a, b) => a.num - b.num);
 const ordered = across.concat(down);
 
 const gridEl = document.getElementById("grid");
+const nameEl = document.getElementById("name");
+const resultEl = document.getElementById("result");
 gridEl.style.gridTemplateColumns = "repeat(" + W + ", var(--cell))";
-let active = null, dir = "A";
+let active = null, dir = "A", submitted = null;
+
+document.getElementById("rules").textContent =
+  "Scoring: +" + PTS_RIGHT + " for each correct word, " + String(PTS_WRONG).replace("-", "\u2212") +
+  " for each wrong word. Empty words and words you reveal score 0. Type your name and press Submit when you have finished.";
 
 for (let r = 0; r < H; r++) {
   for (let c = 0; c < W; c++) {
@@ -232,6 +296,7 @@ for (let r = 0; r < H; r++) {
     });
     inp.addEventListener("focus", () => { if (active !== cell) setActive(cell, dir); });
     inp.addEventListener("input", () => {
+      if (submitted) return;
       const v = inp.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
       inp.value = v;
       cell.el.classList.remove("wrong");
@@ -296,6 +361,7 @@ function onKey(ev, cell) {
   const k = ev.key;
   if (k === "Backspace" && !cell.inp.value) {
     ev.preventDefault();
+    if (submitted) return;
     const e = curEntry();
     const i = e ? e.cells.indexOf(cell) : -1;
     if (i > 0) { const p = e.cells[i - 1]; p.inp.value = ""; p.el.classList.remove("wrong"); setActive(p, e.dir); update(); }
@@ -344,22 +410,164 @@ BANK_ORDER.forEach((lab) => {
 function isFilled(e) { return e.cells.every((c) => c.inp.value); }
 function isRight(e) { return e.cells.every((c) => c.inp.value === c.ch); }
 
+function paintRevealed() {
+  entries.forEach((e) => e.cells.forEach((c) => c.el.classList.toggle("revealed", c.revealed)));
+}
+
+/* ---------- saving on this device ---------- */
 function save() {
   try {
-    const s = {};
-    entries.forEach((e) => e.cells.forEach((c) => { if (c.inp.value) s[c.r + "," + c.c] = c.inp.value; }));
-    localStorage.setItem(KEY, JSON.stringify(s));
+    const l = {}, rv = [];
+    entries.forEach((e) => e.cells.forEach((c) => {
+      if (c.inp.value) l[c.r + "," + c.c] = c.inp.value;
+      if (c.revealed) rv.push(c.r + "," + c.c);
+    }));
+    localStorage.setItem(KEY, JSON.stringify({ l: l, rv: rv, name: nameEl.value, res: submitted }));
   } catch (err) { /* storage unavailable */ }
 }
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || "{}");
-    Object.keys(s).forEach((k) => {
+    Object.keys(s.l || {}).forEach((k) => {
       const p = k.split(",");
       const c = cells[+p[0]] && cells[+p[0]][+p[1]];
-      if (c && /^[A-Z]$/.test(s[k])) c.inp.value = s[k];
+      if (c && /^[A-Z]$/.test(s.l[k])) c.inp.value = s.l[k];
     });
+    (s.rv || []).forEach((k) => {
+      const p = k.split(",");
+      const c = cells[+p[0]] && cells[+p[0]][+p[1]];
+      if (c) c.revealed = true;
+    });
+    nameEl.value = s.name || "";
+    if (s.res && typeof s.res.score === "number") submitted = s.res;
   } catch (err) { /* ignore */ }
+}
+function readHistory() {
+  try { const h = JSON.parse(localStorage.getItem(HKEY) || "[]"); return Array.isArray(h) ? h : []; }
+  catch (err) { return []; }
+}
+function pushHistory(res) {
+  try {
+    const h = readHistory();
+    h.push({ name: res.name, date: res.date, score: res.score, max: res.max });
+    localStorage.setItem(HKEY, JSON.stringify(h.slice(-30)));
+  } catch (err) { /* ignore */ }
+}
+
+/* ---------- scoring ---------- */
+function sgn(n) { return (n < 0 ? "\u2212" : "") + Math.abs(n); }
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" }); }
+  catch (err) { return iso; }
+}
+function statusOf(e) {
+  if (e.cells.some((c) => c.revealed)) return "revealed";
+  if (!isFilled(e)) return "blank";
+  return isRight(e) ? "right" : "wrong";
+}
+function grade() {
+  const words = ordered.map((e) => {
+    const st = statusOf(e);
+    const pts = st === "right" ? PTS_RIGHT : st === "wrong" ? PTS_WRONG : 0;
+    return { num: e.num, dir: e.dir, label: e.label, st: st, pts: pts };
+  });
+  const count = (s) => words.filter((w) => w.st === s).length;
+  return {
+    name: nameEl.value.trim(),
+    date: new Date().toISOString(),
+    score: words.reduce((a, w) => a + w.pts, 0),
+    max: MAX,
+    right: count("right"), wrong: count("wrong"), revealed: count("revealed"), blank: count("blank"),
+    words: words
+  };
+}
+function markGrade() {
+  document.querySelectorAll(".cell.wrong, .cell.ok").forEach((n) => n.classList.remove("wrong", "ok"));
+  entries.forEach((e) => {
+    const st = statusOf(e);
+    e.cells.forEach((c) => {
+      if (st === "wrong" && c.inp.value !== c.ch) c.el.classList.add("wrong");
+      if (st === "right") c.el.classList.add("ok");
+    });
+  });
+}
+function setLocked(on) {
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.readOnly = on; }));
+  ["b-submit", "b-check", "b-word", "b-all", "b-clear"].forEach((id) => { document.getElementById(id).disabled = on; });
+  nameEl.readOnly = on;
+}
+function toText(res) {
+  const lines = [
+    "Taste and Texture - English vocabulary crossword",
+    "Name: " + (res.name || "-"),
+    "Date: " + fmtDate(res.date),
+    "Score: " + sgn(res.score) + " / " + res.max,
+    "Correct: " + res.right + " (+" + res.right * PTS_RIGHT + ")  Wrong: " + res.wrong + " (" + sgn(res.wrong * PTS_WRONG) + ")  Revealed: " + res.revealed + "  Unanswered: " + res.blank,
+    ""
+  ];
+  res.words.forEach((w) => {
+    const tag = w.st === "right" ? "correct" : w.st === "wrong" ? "wrong" : w.st === "revealed" ? "revealed" : "not answered";
+    lines.push(w.num + " " + (w.dir === "A" ? "Across" : "Down") + " - " + w.label + ": " + tag + " (" + (w.pts > 0 ? "+" : "") + sgn(w.pts) + ")");
+  });
+  return lines.join("\n");
+}
+function renderResult(res) {
+  document.getElementById("r-score").textContent = "Score: " + sgn(res.score) + " / " + res.max;
+  document.getElementById("r-sum").textContent =
+    (res.name || "-") + " \u00b7 " + fmtDate(res.date) + " \u00b7 Correct: " + res.right + " \u00b7 Wrong: " + res.wrong +
+    " \u00b7 Revealed: " + res.revealed + " \u00b7 Unanswered: " + res.blank;
+  const ul = document.getElementById("r-list");
+  ul.textContent = "";
+  res.words.forEach((w) => {
+    const li = document.createElement("li");
+    const a = document.createElement("span");
+    a.textContent = w.num + " " + (w.dir === "A" ? "Across" : "Down") + " \u00b7 " + w.label;
+    const b = document.createElement("span");
+    if (w.st === "right") { b.className = "st-right"; b.textContent = "\u2713 +" + w.pts; }
+    else if (w.st === "wrong") { b.className = "st-wrong"; b.textContent = "\u2717 " + sgn(w.pts); }
+    else { b.className = "st-other"; b.textContent = (w.st === "revealed" ? "revealed " : "no answer ") + "0"; }
+    li.append(a, b);
+    ul.appendChild(li);
+  });
+  const h = readHistory().filter((x) => !res.name || x.name === res.name);
+  const hist = document.getElementById("r-hist");
+  if (h.length > 1) {
+    const best = Math.max.apply(null, h.map((x) => x.score));
+    hist.textContent = "Attempts on this device: " + h.length + " \u00b7 Best score: " + sgn(best) + " / " + res.max +
+      " \u00b7 Latest: " + h.slice(-5).map((x) => sgn(x.score)).join(", ");
+  } else {
+    hist.textContent = "";
+  }
+  resultEl.hidden = false;
+}
+
+function submitNow() {
+  if (submitted) return;
+  const st = document.getElementById("status");
+  if (!nameEl.value.trim()) {
+    st.classList.remove("ok");
+    st.textContent = "Please type your name before submitting.";
+    nameEl.focus();
+    return;
+  }
+  submitted = grade();
+  pushHistory(submitted);
+  setLocked(true);
+  markGrade();
+  renderResult(submitted);
+  update();
+  resultEl.scrollIntoView({ block: "start" });
+}
+
+function newAttempt() {
+  submitted = null;
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = ""; c.revealed = false; }));
+  document.querySelectorAll(".cell.wrong, .cell.ok").forEach((n) => n.classList.remove("wrong", "ok"));
+  paintRevealed();
+  setLocked(false);
+  resultEl.hidden = true;
+  update();
+  window.scrollTo({ top: 0 });
 }
 
 function update(msg) {
@@ -375,9 +583,15 @@ function update(msg) {
     li.classList.toggle("filled", !!e && isFilled(e));
   });
   const st = document.getElementById("status");
+  if (submitted) {
+    st.classList.remove("ok");
+    st.textContent = "Submitted. Final score: " + sgn(submitted.score) + " / " + submitted.max + ".";
+    save();
+    return;
+  }
   const solved = entries.every(isRight);
   st.classList.toggle("ok", solved);
-  if (solved) st.textContent = "Solved. All 20 words are correct.";
+  if (solved) st.textContent = "Solved. All 20 words are correct. Press Submit to record your score.";
   else st.textContent = msg || (filled + " of 20 words filled in.");
   save();
 }
@@ -392,27 +606,55 @@ function arm(btn, label, action) {
 }
 
 document.getElementById("b-check").addEventListener("click", () => {
-  let bad = 0;
+  if (submitted) return;
   entries.forEach((e) => e.cells.forEach((c) => {
     const wrong = !!c.inp.value && c.inp.value !== c.ch;
     c.el.classList.toggle("wrong", wrong);
   }));
-  bad = document.querySelectorAll(".cell.wrong").length;
+  const bad = document.querySelectorAll(".cell.wrong").length;
   update(bad ? bad + (bad === 1 ? " letter needs" : " letters need") + " another look." : "Every letter you have entered is correct so far.");
 });
 document.getElementById("b-word").addEventListener("click", () => {
+  if (submitted) return;
   const e = curEntry();
   if (!e) { document.getElementById("status").textContent = "Select a square first."; return; }
-  e.cells.forEach((c) => { c.inp.value = c.ch; c.el.classList.remove("wrong"); });
-  update();
+  e.cells.forEach((c) => { c.inp.value = c.ch; c.revealed = true; c.el.classList.remove("wrong"); });
+  paintRevealed();
+  update("Word revealed. Revealed words score 0.");
 });
 arm(document.getElementById("b-all"), "Reveal all", () => {
-  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = c.ch; c.el.classList.remove("wrong"); }));
-  update();
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = c.ch; c.revealed = true; c.el.classList.remove("wrong"); }));
+  paintRevealed();
+  update("Everything revealed. Revealed words score 0.");
 });
 arm(document.getElementById("b-clear"), "Clear", () => {
-  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = ""; c.el.classList.remove("wrong"); }));
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = ""; c.revealed = false; c.el.classList.remove("wrong"); }));
+  paintRevealed();
   update();
+});
+arm(document.getElementById("b-submit"), "Submit and score", submitNow);
+
+document.getElementById("b-again").addEventListener("click", newAttempt);
+nameEl.addEventListener("input", save);
+
+document.getElementById("b-copy").addEventListener("click", () => {
+  if (!submitted) return;
+  const st = document.getElementById("status");
+  const txt = toText(submitted);
+  const fallback = () => { st.textContent = "Copy is not available here. Use Download result instead."; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => { st.textContent = "Result copied. You can paste it into a message or email."; }, fallback);
+  } else { fallback(); }
+});
+document.getElementById("b-dl").addEventListener("click", () => {
+  if (!submitted) return;
+  const slug = (submitted.name || "student").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "student";
+  const blob = new Blob([toText(submitted)], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "crossword-" + slug + ".txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
 function fit() {
@@ -426,6 +668,8 @@ window.addEventListener("resize", fit);
 fit();
 
 load();
+paintRevealed();
+if (submitted) { setLocked(true); markGrade(); renderResult(submitted); }
 update();
 setActive(across[0].cells[0], "A", true);
 </script>
