@@ -1,0 +1,433 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Taste and Texture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Mono:wght@500&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: one A4 sheet (794 x 1123 px at 96 dpi): grid and word bank on the left, clues on the right. The sheet scales down to fit narrow screens. */
+:root {
+  --bg: #e4e9f0;
+  --surface: #ffffff;
+  --ink: #16213a;
+  --muted: #5b6a82;
+  --line: #b4c0d1;
+  --accent: #0e7c86;
+  --accent-ink: #ffffff;
+  --hl: #cdeef0;
+  --active: #ffd45e;
+  --active-ink: #16213a;
+  --bad: #c0392b;
+  --good: #1e7a46;
+  --shadow: rgba(22, 33, 58, 0.18);
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --cell: 27px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0f16; --surface: #18212e; --ink: #e8eef7; --muted: #94a3ba; --line: #34445b;
+    --accent: #4fc3cc; --accent-ink: #0b1118; --hl: #1d3b44; --active: #e8b93a; --active-ink: #101722;
+    --bad: #ff7b6b; --good: #5fd18d; --shadow: rgba(0, 0, 0, 0.5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0f16; --surface: #18212e; --ink: #e8eef7; --muted: #94a3ba; --line: #34445b;
+  --accent: #4fc3cc; --accent-ink: #0b1118; --hl: #1d3b44; --active: #e8b93a; --active-ink: #101722;
+  --bad: #ff7b6b; --good: #5fd18d; --shadow: rgba(0, 0, 0, 0.5); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.4;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 794px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.how { margin: 0; font-size: 14px; color: var(--muted); }
+.now {
+  display: flex; gap: 10px; align-items: baseline; min-height: 3.1em;
+  padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+}
+.now-n { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--accent); white-space: nowrap; }
+.now-t { min-width: 0; font-size: 15px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn {
+  font: 600 14px/1 var(--font-body); padding: 10px 14px; border-radius: 6px; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.armed { border-color: var(--bad); color: var(--bad); }
+.btn:focus-visible, .clue:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#status { margin: 0; min-height: 1.5em; font-size: 14px; color: var(--muted); }
+#status.ok { color: var(--good); font-weight: 600; }
+
+#stage { margin: 4px auto 0; position: relative; }
+#sheet {
+  width: 794px; height: 1123px; padding: 38px 40px; transform-origin: 0 0;
+  background: var(--surface); box-shadow: 0 2px 14px var(--shadow);
+  display: flex; flex-direction: column; gap: 20px; overflow: hidden;
+}
+.sh { display: flex; flex-direction: column; gap: 4px; }
+.meta { margin: 0; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 38px; line-height: 1; letter-spacing: -0.02em; }
+.cols { display: grid; grid-template-columns: calc(var(--cell) * 16) minmax(0, 1fr); gap: 26px; align-items: start; flex: 1; min-height: 0; }
+.left { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+#grid { display: grid; width: max-content; }
+.cell { position: relative; width: var(--cell); height: var(--cell); background: var(--surface); outline: 1px solid var(--ink); outline-offset: -0.5px; }
+.void { width: var(--cell); height: var(--cell); }
+.cell .n {
+  position: absolute; top: 1px; left: 2px; z-index: 1; pointer-events: none;
+  font-family: var(--font-mono); font-size: 7.5px; line-height: 1; color: var(--muted);
+}
+.cell input {
+  width: 100%; height: 100%; border: 0; border-radius: 0; background: transparent; padding: 3px 0 0;
+  text-align: center; text-transform: uppercase; caret-color: transparent; outline: none;
+  font-family: var(--font-body); font-weight: 600; font-size: 15px; line-height: 1; color: var(--ink);
+}
+.cell.in-word { background: var(--hl); }
+.cell.active { background: var(--active); }
+.cell.active input, .cell.active .n { color: var(--active-ink); }
+.cell.wrong { box-shadow: inset 0 0 0 2px var(--bad); }
+.cell.wrong input { color: var(--bad); }
+.right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+h2 {
+  margin: 0 0 4px; font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em;
+  padding-bottom: 3px; border-bottom: 2px solid var(--ink);
+}
+ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.clue {
+  display: grid; grid-template-columns: 1.9em minmax(0, 1fr); gap: 2px; width: 100%; text-align: left; cursor: pointer;
+  background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 4px 3px;
+  font: inherit; font-size: 11.5px; line-height: 1.3; color: var(--ink);
+}
+.clue:hover { background: var(--hl); }
+.clue.current { background: var(--hl); box-shadow: inset 3px 0 0 var(--accent); }
+.clue .cn { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--accent); }
+.clue .len { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); white-space: nowrap; }
+.clue.filled .ct { color: var(--muted); }
+.clue.filled .cn::after { content: "\2713"; color: var(--good); margin-left: 1px; }
+.bank { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.bank li { font-family: var(--font-mono); font-size: 10.5px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; }
+.bank li.filled { color: var(--muted); text-decoration: line-through; }
+@media (prefers-reduced-motion: no-preference) {
+  .cell, .btn, .clue { transition: background-color 0.12s ease, border-color 0.12s ease; }
+}
+@page { size: A4 portrait; margin: 0; }
+@media print {
+  body { padding: 0; background: #fff; }
+  .wrap { max-width: none; gap: 0; }
+  .how, .now, .tools, #status { display: none; }
+  #stage { width: 210mm !important; height: 297mm !important; margin: 0; }
+  #sheet { transform: none !important; box-shadow: none; }
+}
+</style>
+
+<div class="wrap">
+  <p class="how">Select a square and type. Select it again to switch between across and down. Leave out spaces and hyphens: "to fit together" is written FITTOGETHER.</p>
+  <div class="now" aria-live="polite"><span class="now-n" id="now-n"></span><span class="now-t" id="now-t"></span></div>
+  <div class="tools">
+    <button type="button" class="btn primary" id="b-check">Check letters</button>
+    <button type="button" class="btn" id="b-word">Reveal word</button>
+    <button type="button" class="btn" id="b-all">Reveal all</button>
+    <button type="button" class="btn" id="b-clear">Clear</button>
+  </div>
+  <p id="status" aria-live="polite"></p>
+
+  <div id="stage">
+    <div id="sheet">
+      <header class="sh">
+        <p class="meta">English vocabulary crossword · 20 words</p>
+        <h1>Taste and Texture</h1>
+      </header>
+      <div class="cols">
+        <div class="left">
+          <div id="grid" role="grid" aria-label="Crossword"></div>
+          <section><h2>Word bank</h2><ul class="bank" id="bank"></ul></section>
+        </div>
+        <div class="right">
+          <section><h2>Across</h2><ol id="across"></ol></section>
+          <section><h2>Down</h2><ol id="down"></ol></section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = {"h": 22, "w": 16, "entries": [{"word": "OPAQUENESS", "label": "opaqueness", "r": 12, "c": 1, "dir": "A", "num": 14}, {"word": "POMEGRANATE", "label": "pomegranate", "r": 2, "c": 8, "dir": "D", "num": 3}, {"word": "FITTOGETHER", "label": "to fit together", "r": 6, "c": 3, "dir": "A", "num": 6}, {"word": "SEAWEED", "label": "seaweed", "r": 8, "c": 6, "dir": "A", "num": 8}, {"word": "COCKROACH", "label": "cockroach", "r": 3, "c": 7, "dir": "A", "num": 4}, {"word": "DYE", "label": "to dye", "r": 8, "c": 12, "dir": "D", "num": 9}, {"word": "SHRIVELLED", "label": "shrivelled", "r": 12, "c": 9, "dir": "D", "num": 15}, {"word": "EDIBLE", "label": "edible", "r": 17, "c": 9, "dir": "A", "num": 17}, {"word": "TASTE", "label": "to taste", "r": 6, "c": 6, "dir": "D", "num": 7}, {"word": "DATE", "label": "date", "r": 11, "c": 3, "dir": "D", "num": 12}, {"word": "SEPARATE", "label": "to separate", "r": 10, "c": 5, "dir": "A", "num": 11}, {"word": "VISCOSITY", "label": "viscosity", "r": 0, "c": 4, "dir": "D", "num": 1}, {"word": "THREADS", "label": "threads", "r": 21, "c": 4, "dir": "A", "num": 19}, {"word": "FLEXIBLE", "label": "flexible", "r": 1, "c": 0, "dir": "A", "num": 2}, {"word": "AMOUNT", "label": "amount", "r": 10, "c": 1, "dir": "D", "num": 10}, {"word": "MAGGOTS", "label": "maggots", "r": 4, "c": 0, "dir": "A", "num": 5}, {"word": "NONEDIBLE", "label": "non-edible", "r": 17, "c": 6, "dir": "A", "num": 16}, {"word": "FORMULA", "label": "formula", "r": 1, "c": 0, "dir": "D", "num": 2}, {"word": "WRINKLED", "label": "wrinkled", "r": 19, "c": 4, "dir": "A", "num": 18}, {"word": "ACHIEVE", "label": "to achieve", "r": 11, "c": 14, "dir": "D", "num": 13}]};
+const CLUES = {
+  COCKROACH: "A dark, fast insect that lives in kitchens and drains and comes out at night",
+  VISCOSITY: "How thick and slow-flowing a liquid is, such as honey compared with water",
+  OPAQUENESS: "The quality of not letting any light through; the opposite of transparency",
+  DATE: "A sweet, sticky brown fruit that grows on palm trees; also a day on the calendar",
+  TASTE: "To try a small piece of food to find out its flavour",
+  POMEGRANATE: "A round red fruit that is full of small, juicy seeds",
+  SEAWEED: "Green or brown plant that grows in the ocean and is used to wrap sushi",
+  AMOUNT: "How much of something there is; a quantity",
+  FORMULA: "A recipe or set of symbols that shows how to make or calculate something",
+  ACHIEVE: "To succeed in reaching a goal after hard work",
+  EDIBLE: "Safe and suitable to eat",
+  NONEDIBLE: "Not safe or suitable to eat",
+  MAGGOTS: "Soft, pale fly larvae found on rotting food",
+  DYE: "To change the colour of cloth or hair with a coloured liquid",
+  WRINKLED: "Covered with small lines or folds, like old skin or crumpled paper",
+  THREADS: "Thin strings of cotton or silk used for sewing",
+  FLEXIBLE: "Able to bend easily without breaking",
+  FITTOGETHER: "To join pieces so that they match, like a jigsaw puzzle",
+  SEPARATE: "To divide things or move them apart",
+  SHRIVELLED: "Dried up and curled, like a leaf or fruit that has lost its water"
+};
+const ENUM = { FITTOGETHER: "(3,8)", NONEDIBLE: "(3-6)" };
+const BANK_ORDER = ["cockroach","viscosity","opaqueness","date","to taste","pomegranate","seaweed","amount","formula","to achieve","edible","non-edible","maggots","to dye","wrinkled","threads","flexible","to fit together","to separate","shrivelled"];
+const KEY = "taste-and-texture-crossword-v1";
+
+const H = DATA.h, W = DATA.w;
+const cells = Array.from({ length: H }, () => Array(W).fill(null));
+const entries = DATA.entries;
+entries.forEach((e) => {
+  e.cells = [];
+  for (let k = 0; k < e.word.length; k++) {
+    const r = e.r + (e.dir === "D" ? k : 0);
+    const c = e.c + (e.dir === "A" ? k : 0);
+    let cell = cells[r][c];
+    if (!cell) { cell = cells[r][c] = { r, c, ch: e.word[k], ent: {}, num: 0 }; }
+    cell.ent[e.dir] = e;
+    if (k === 0) cell.num = e.num;
+    e.cells.push(cell);
+  }
+});
+const across = entries.filter((e) => e.dir === "A").sort((a, b) => a.num - b.num);
+const down = entries.filter((e) => e.dir === "D").sort((a, b) => a.num - b.num);
+const ordered = across.concat(down);
+
+const gridEl = document.getElementById("grid");
+gridEl.style.gridTemplateColumns = "repeat(" + W + ", var(--cell))";
+let active = null, dir = "A";
+
+for (let r = 0; r < H; r++) {
+  for (let c = 0; c < W; c++) {
+    const cell = cells[r][c];
+    if (!cell) { const v = document.createElement("div"); v.className = "void"; gridEl.appendChild(v); continue; }
+    const d = document.createElement("div");
+    d.className = "cell";
+    d.setAttribute("role", "gridcell");
+    if (cell.num) { const n = document.createElement("span"); n.className = "n"; n.textContent = cell.num; d.appendChild(n); }
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.maxLength = 2; inp.autocomplete = "off"; inp.spellcheck = false;
+    inp.setAttribute("autocapitalize", "characters");
+    inp.setAttribute("aria-label", "Row " + (r + 1) + ", column " + (c + 1));
+    d.appendChild(inp);
+    cell.el = d; cell.inp = inp;
+    gridEl.appendChild(d);
+
+    inp.addEventListener("pointerdown", () => { cell.was = active === cell; });
+    inp.addEventListener("click", () => {
+      if (cell.was && cell.ent.A && cell.ent.D) dir = dir === "A" ? "D" : "A";
+      setActive(cell, dir);
+    });
+    inp.addEventListener("focus", () => { if (active !== cell) setActive(cell, dir); });
+    inp.addEventListener("input", () => {
+      const v = inp.value.replace(/[^a-z]/gi, "").slice(-1).toUpperCase();
+      inp.value = v;
+      cell.el.classList.remove("wrong");
+      if (v) advance(cell);
+      update();
+    });
+    inp.addEventListener("keydown", (ev) => onKey(ev, cell));
+  }
+}
+
+function curEntry() { return active ? (active.ent[dir] || active.ent[dir === "A" ? "D" : "A"]) : null; }
+
+function setActive(cell, want, noFocus) {
+  if (want && cell.ent[want]) dir = want;
+  else if (!cell.ent[dir]) dir = dir === "A" ? "D" : "A";
+  active = cell;
+  paint();
+  if (!noFocus && document.activeElement !== cell.inp) cell.inp.focus({ preventScroll: true });
+}
+
+function paint() {
+  document.querySelectorAll(".cell.active, .cell.in-word").forEach((n) => n.classList.remove("active", "in-word"));
+  document.querySelectorAll(".clue.current").forEach((n) => n.classList.remove("current"));
+  const e = curEntry();
+  if (!e) return;
+  e.cells.forEach((c) => c.el.classList.add("in-word"));
+  active.el.classList.add("active");
+  document.getElementById("now-n").textContent = e.num + " " + (e.dir === "A" ? "Across" : "Down");
+  document.getElementById("now-t").textContent = CLUES[e.word] + " " + lenOf(e);
+  const li = document.getElementById("clue-" + e.dir + e.num);
+  if (li) li.classList.add("current");
+}
+
+function lenOf(e) { return ENUM[e.word] || "(" + e.word.length + ")"; }
+
+function advance(cell) {
+  const e = cell.ent[dir] || curEntry();
+  if (!e) return;
+  const i = e.cells.indexOf(cell);
+  if (i >= 0 && i < e.cells.length - 1) setActive(e.cells[i + 1], e.dir);
+}
+
+function go(r, c, dr, dc) {
+  let rr = r + dr, cc = c + dc;
+  while (rr >= 0 && rr < H && cc >= 0 && cc < W) {
+    if (cells[rr][cc]) return cells[rr][cc];
+    rr += dr; cc += dc;
+  }
+  return null;
+}
+
+function jumpEntry(step) {
+  const e = curEntry();
+  let i = ordered.indexOf(e);
+  i = (i + step + ordered.length) % ordered.length;
+  const n = ordered[i];
+  const target = n.cells.find((c) => !c.inp.value) || n.cells[0];
+  setActive(target, n.dir);
+}
+
+function onKey(ev, cell) {
+  const k = ev.key;
+  if (k === "Backspace" && !cell.inp.value) {
+    ev.preventDefault();
+    const e = curEntry();
+    const i = e ? e.cells.indexOf(cell) : -1;
+    if (i > 0) { const p = e.cells[i - 1]; p.inp.value = ""; p.el.classList.remove("wrong"); setActive(p, e.dir); update(); }
+  } else if (k === "ArrowRight" || k === "ArrowLeft" || k === "ArrowDown" || k === "ArrowUp") {
+    ev.preventDefault();
+    const horiz = k === "ArrowRight" || k === "ArrowLeft";
+    const step = k === "ArrowRight" || k === "ArrowDown" ? 1 : -1;
+    const n = horiz ? go(cell.r, cell.c, 0, step) : go(cell.r, cell.c, step, 0);
+    if (n) setActive(n, horiz ? "A" : "D");
+  } else if (k === "Tab" || k === "Enter") {
+    ev.preventDefault();
+    jumpEntry(ev.shiftKey ? -1 : 1);
+  }
+}
+
+function build(list, host) {
+  list.forEach((e) => {
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "clue"; b.id = "clue-" + e.dir + e.num;
+    b.innerHTML = '<span class="cn"></span><span class="ct"></span>';
+    b.querySelector(".cn").textContent = e.num;
+    const ct = b.querySelector(".ct");
+    ct.appendChild(document.createTextNode(CLUES[e.word] + " "));
+    const len = document.createElement("span"); len.className = "len"; len.textContent = lenOf(e);
+    ct.appendChild(len);
+    b.addEventListener("click", () => {
+      const t = e.cells.find((c) => !c.inp.value) || e.cells[0];
+      setActive(t, e.dir);
+    });
+    li.appendChild(b); host.appendChild(li);
+  });
+}
+build(across, document.getElementById("across"));
+build(down, document.getElementById("down"));
+
+const bankEl = document.getElementById("bank");
+const byLabel = {};
+entries.forEach((e) => { byLabel[e.label] = e; });
+BANK_ORDER.forEach((lab) => {
+  const li = document.createElement("li");
+  li.textContent = lab; li.dataset.label = lab;
+  bankEl.appendChild(li);
+});
+
+function isFilled(e) { return e.cells.every((c) => c.inp.value); }
+function isRight(e) { return e.cells.every((c) => c.inp.value === c.ch); }
+
+function save() {
+  try {
+    const s = {};
+    entries.forEach((e) => e.cells.forEach((c) => { if (c.inp.value) s[c.r + "," + c.c] = c.inp.value; }));
+    localStorage.setItem(KEY, JSON.stringify(s));
+  } catch (err) { /* storage unavailable */ }
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || "{}");
+    Object.keys(s).forEach((k) => {
+      const p = k.split(",");
+      const c = cells[+p[0]] && cells[+p[0]][+p[1]];
+      if (c && /^[A-Z]$/.test(s[k])) c.inp.value = s[k];
+    });
+  } catch (err) { /* ignore */ }
+}
+
+function update(msg) {
+  let filled = 0;
+  entries.forEach((e) => {
+    const f = isFilled(e);
+    if (f) filled++;
+    const li = document.getElementById("clue-" + e.dir + e.num);
+    if (li) li.classList.toggle("filled", f);
+  });
+  bankEl.querySelectorAll("li").forEach((li) => {
+    const e = byLabel[li.dataset.label];
+    li.classList.toggle("filled", !!e && isFilled(e));
+  });
+  const st = document.getElementById("status");
+  const solved = entries.every(isRight);
+  st.classList.toggle("ok", solved);
+  if (solved) st.textContent = "Solved. All 20 words are correct.";
+  else st.textContent = msg || (filled + " of 20 words filled in.");
+  save();
+}
+
+function arm(btn, label, action) {
+  let t = null;
+  btn.addEventListener("click", () => {
+    if (t) { clearTimeout(t); t = null; btn.classList.remove("armed"); btn.textContent = label; action(); return; }
+    btn.classList.add("armed"); btn.textContent = "Sure? Select again";
+    t = setTimeout(() => { t = null; btn.classList.remove("armed"); btn.textContent = label; }, 3000);
+  });
+}
+
+document.getElementById("b-check").addEventListener("click", () => {
+  let bad = 0;
+  entries.forEach((e) => e.cells.forEach((c) => {
+    const wrong = !!c.inp.value && c.inp.value !== c.ch;
+    c.el.classList.toggle("wrong", wrong);
+  }));
+  bad = document.querySelectorAll(".cell.wrong").length;
+  update(bad ? bad + (bad === 1 ? " letter needs" : " letters need") + " another look." : "Every letter you have entered is correct so far.");
+});
+document.getElementById("b-word").addEventListener("click", () => {
+  const e = curEntry();
+  if (!e) { document.getElementById("status").textContent = "Select a square first."; return; }
+  e.cells.forEach((c) => { c.inp.value = c.ch; c.el.classList.remove("wrong"); });
+  update();
+});
+arm(document.getElementById("b-all"), "Reveal all", () => {
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = c.ch; c.el.classList.remove("wrong"); }));
+  update();
+});
+arm(document.getElementById("b-clear"), "Clear", () => {
+  entries.forEach((e) => e.cells.forEach((c) => { c.inp.value = ""; c.el.classList.remove("wrong"); }));
+  update();
+});
+
+function fit() {
+  const stage = document.getElementById("stage"), sheet = document.getElementById("sheet");
+  const s = Math.min(1, stage.parentElement.clientWidth / 794);
+  sheet.style.transform = "scale(" + s + ")";
+  stage.style.width = Math.round(794 * s) + "px";
+  stage.style.height = Math.round(1123 * s) + "px";
+}
+window.addEventListener("resize", fit);
+fit();
+
+load();
+update();
+setActive(across[0].cells[0], "A", true);
+</script>
+
+</body></html>
